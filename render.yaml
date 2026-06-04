@@ -1,0 +1,43 @@
+services:
+  - type: web
+    name: tablu-backend
+    runtime: node
+    rootDir: backend
+    plan: free
+    buildCommand: npm install && npm run build
+    startCommand: npm run start
+    healthCheckPath: /health
+    envVars:
+      # Non-secret config (committed):
+      - key: MOMO_TARGET_ENVIRONMENT
+        value: sandbox
+      - key: MOMO_SIMULATE
+        value: "true"
+      - key: MOMO_BASE_URL
+        value: https://sandbox.momodeveloper.mtn.com
+      # Secrets — set these in the Render dashboard (Environment tab):
+      - key: DATABASE_URL
+        sync: false
+      - key: DIRECT_URL
+        sync: false
+      - key: SUPABASE_URL
+        sync: false
+      - key: SUPABASE_ANON_KEY
+        sync: false
+      - key: SUPABASE_SERVICE_ROLE_KEY
+        sync: false
+      - key: MUX_TOKEN_ID
+        sync: false
+      - key: MUX_TOKEN_SECRET
+        sync: false
+      - key: MOMO_SUBSCRIPTION_KEY
+        sync: false
+      - key: MOMO_API_USER
+        sync: false
+      - key: MOMO_API_KEY
+        sync: false
+      # Set after the Vercel app URL exists:
+      - key: CLIENT_ORIGIN
+        sync: false
+      - key: PUBLIC_MENU_BASE
+        sync: false
