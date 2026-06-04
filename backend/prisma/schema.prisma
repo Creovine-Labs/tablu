@@ -1,0 +1,216 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")  // Transaction pooler (6543) — app runtime
+  directUrl = env("DIRECT_URL")    // Direct connection (5432) — migrations only
+}
+
+// ─────────────────────────────────────────────
+// Tenancy: one platform, many restaurants
+// ─────────────────────────────────────────────
+
+model Restaurant {
+  id            String   @id @default(cuid())
+  name          String
+  slug          String   @unique
+  logoUrl       String?
+  primaryColor  String   @default("#F25623") // restaurant brand color (customer app)
+  address       String?
+  phone         String?
+  email         String?
+  paymentMode   PaymentMode @default(AFTER) // pay upfront or pay after eating
+  active        Boolean  @default(true)
+  createdAt     DateTime @default(now())
+
+  categories    Category[]
+  dishes        Dish[]
+  tables        Table[]
+  orders        Order[]
+  users         User[]
+  guests        RestaurantGuest[]
+
+  @@index([slug])
+}
+
+enum PaymentMode {
+  UPFRONT
+  AFTER
+}
+
+model User {
+  id           String   @id @default(cuid())
+  authId       String?  @unique // Supabase Auth user id
+  email        String   @unique
+  name         String?
+  role         Role     @default(OWNER)
+  restaurantId String?
+  restaurant   Restaurant? @relation(fields: [restaurantId], references: [id], onDelete: SetNull)
+  createdAt    DateTime @default(now())
+}
+
+enum Role {
+  ADMIN  // Tablu platform
+  OWNER  // restaurant owner/manager
+  STAFF  // kitchen only
+}
+
+// ─────────────────────────────────────────────
+// Menu
+// ─────────────────────────────────────────────
+
+model Category {
+  id           String   @id @default(cuid())
+  restaurantId String
+  restaurant   Restaurant @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+  name         String
+  sortOrder    Int      @default(0)
+  dishes       Dish[]
+
+  @@index([restaurantId])
+}
+
+model Dish {
+  id            String   @id @default(cuid())
+  restaurantId  String
+  restaurant    Restaurant @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+  categoryId    String?
+  category      Category? @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+  name          String
+  description   String?
+  priceRwf      Int
+  format        DishFormat @default(TEXT)
+  // Mux video
+  muxUploadId   String?
+  muxAssetId    String?
+  muxPlaybackId String?
+  muxStatus     String?  // waiting | preparing | ready | errored
+  thumbnailUrl  String?
+  imageUrl      String?
+  dietaryTags   String[] @default([])
+  allergens     String?
+  available     Boolean  @default(true)
+  sortOrder     Int      @default(0)
+  createdAt     DateTime @default(now())
+
+  orderItems    OrderItem[]
+
+  @@index([restaurantId])
+  @@index([categoryId])
+}
+
+enum DishFormat {
+  TEXT
+  IMAGE
+  VIDEO
+  IMAGE_VIDEO
+}
+
+model Table {
+  id           String   @id @default(cuid())
+  restaurantId String
+  restaurant   Restaurant @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+  number       String
+  qrUrl        String?
+  orders       Order[]
+
+  @@unique([restaurantId, number])
+  @@index([restaurantId])
+}
+
+// ─────────────────────────────────────────────
+// Guests & CRM
+// ─────────────────────────────────────────────
+
+model Guest {
+  id        String   @id @default(cuid())
+  name      String
+  phone     String?  @unique
+  email     String?
+  createdAt DateTime @default(now())
+
+  restaurants RestaurantGuest[]
+  orders      Order[]
+}
+
+model RestaurantGuest {
+  id            String   @id @default(cuid())
+  restaurantId  String
+  restaurant    Restaurant @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+  guestId       String
+  guest         Guest    @relation(fields: [guestId], references: [id], onDelete: Cascade)
+  firstVisit    DateTime @default(now())
+  lastVisit     DateTime @default(now())
+  visitCount    Int      @default(1)
+  totalSpentRwf Int      @default(0)
+  loyaltyPoints Int      @default(0)
+  notes         String?
+  marketingRestaurant Boolean @default(false)
+  marketingTablu      Boolean @default(false)
+
+  @@unique([restaurantId, guestId])
+  @@index([restaurantId])
+}
+
+// ─────────────────────────────────────────────
+// Orders
+// ─────────────────────────────────────────────
+
+model Order {
+  id            String   @id @default(cuid())
+  restaurantId  String
+  restaurant    Restaurant @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+  tableId       String?
+  table         Table?   @relation(fields: [tableId], references: [id], onDelete: SetNull)
+  guestId       String?
+  guest         Guest?   @relation(fields: [guestId], references: [id], onDelete: SetNull)
+  status        OrderStatus  @default(PLACED)
+  paymentStatus PaymentStatus @default(PENDING)
+  momoReference String?
+  totalRwf      Int      @default(0)
+  createdAt     DateTime @default(now())
+
+  items         OrderItem[]
+  receipt       Receipt?
+
+  @@index([restaurantId])
+}
+
+enum OrderStatus {
+  PLACED
+  CONFIRMED
+  PREPARING
+  READY
+  DELIVERED
+  CANCELLED
+  REFUNDED
+}
+
+enum PaymentStatus {
+  PENDING
+  SUCCESSFUL
+  FAILED
+  CANCELLED
+}
+
+model OrderItem {
+  id                  String  @id @default(cuid())
+  orderId             String
+  order               Order   @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  dishId              String?
+  dish                Dish?   @relation(fields: [dishId], references: [id], onDelete: SetNull)
+  nameSnapshot        String  // dish name at time of order
+  qty                 Int     @default(1)
+  unitPriceRwf        Int
+  specialInstructions String?
+}
+
+model Receipt {
+  id        String   @id @default(cuid())
+  orderId   String   @unique
+  order     Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  publicId  String   @unique @default(cuid()) // tablu.app/r/receipt/{publicId}
+  createdAt DateTime @default(now())
+}
