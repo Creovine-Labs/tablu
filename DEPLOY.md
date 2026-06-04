@@ -20,8 +20,10 @@ Repo: `github.com/Creovine-Labs/tablu` · Backend → Railway · Frontend → Ve
    - `SUPABASE_SERVICE_ROLE_KEY`
    - `MUX_TOKEN_ID`
    - `MUX_TOKEN_SECRET`
+   - `MOMO_BASE_URL` = `https://sandbox.momodeveloper.mtn.com`
+   - `MOMO_SUBSCRIPTION_KEY`, `MOMO_API_USER`, `MOMO_API_KEY` (from your local `.env`)
    - `MOMO_TARGET_ENVIRONMENT` = `sandbox`
-   - (later) `MOMO_SUBSCRIPTION_KEY`, `MOMO_API_USER`, `MOMO_API_KEY`
+   - `MOMO_SIMULATE` = `true`  (demo-safe; set `false` for real MoMo calls)
    - Do NOT set `PORT` — Railway provides it.
 5. **Settings → Networking → Generate Domain.** Copy the URL, e.g.
    `https://tablu-backend-production.up.railway.app` → this is your **BACKEND_URL**.

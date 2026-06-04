@@ -3,7 +3,7 @@ import { z } from "zod";
 import { prisma } from "../lib/prisma.js";
 import { hlsUrl } from "../lib/mux.js";
 import { emitToRestaurant, emitToOrder } from "../realtime.js";
-import { momoConfigured, requestToPay, getPaymentStatus } from "../lib/momo.js";
+import { simulateMomo, requestToPay, getPaymentStatus } from "../lib/momo.js";
 
 const router = Router();
 
@@ -187,7 +187,7 @@ router.post("/orders/:id/pay", async (req, res) => {
   const order = await prisma.order.findUnique({ where: { id } });
   if (!order) return res.status(404).json({ error: "Order not found" });
 
-  if (momoConfigured && phone) {
+  if (!simulateMomo && phone) {
     try {
       const ref = await requestToPay(order.totalRwf, phone, id);
       await prisma.order.update({ where: { id }, data: { momoReference: ref, paymentStatus: "PENDING" } });
@@ -213,7 +213,7 @@ router.get("/orders/:id/payment-status", async (req, res) => {
     return res.json({ status: "SUCCESSFUL", receiptId: r?.publicId });
   }
 
-  const simulated = !momoConfigured || order.momoReference?.startsWith("SIM-");
+  const simulated = simulateMomo || order.momoReference?.startsWith("SIM-");
   if (simulated) {
     const receiptId = await finalizePayment(id);
     return res.json({ status: "SUCCESSFUL", receiptId });

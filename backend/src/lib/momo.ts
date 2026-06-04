@@ -4,13 +4,19 @@ const SUB_KEY = process.env.MOMO_SUBSCRIPTION_KEY || "";
 const API_USER = process.env.MOMO_API_USER || "";
 const API_KEY = process.env.MOMO_API_KEY || "";
 const TARGET = process.env.MOMO_TARGET_ENVIRONMENT || "sandbox";
-const BASE = TARGET === "sandbox"
-  ? "https://sandbox.momodeveloper.mtn.com"
-  : "https://proxy.momoapi.mtn.com";
+// Rwanda portal. Override with MOMO_BASE_URL if needed.
+const BASE = process.env.MOMO_BASE_URL
+  || (TARGET === "sandbox"
+    ? "https://sandbox.momodeveloper.mtn.co.rw"
+    : "https://proxy.momoapi.mtn.co.rw");
 // Sandbox only settles in EUR; production uses local currency.
 const CURRENCY = TARGET === "sandbox" ? "EUR" : "RWF";
 
 export const momoConfigured = Boolean(SUB_KEY && API_USER && API_KEY);
+
+// Use the always-completing simulated flow when keys are absent OR when explicitly
+// forced (demo-safe, since the MTN sandbox leaves transactions PENDING forever).
+export const simulateMomo = !momoConfigured || process.env.MOMO_SIMULATE === "true";
 
 async function getToken(): Promise<string> {
   const basic = Buffer.from(`${API_USER}:${API_KEY}`).toString("base64");
