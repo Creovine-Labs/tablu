@@ -1,16 +1,18 @@
-import { useState, useEffect } from "react";
-import { useParams } from "react-router-dom";
+import { useState } from "react";
+import { useParams, useNavigate, Link } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { api } from "../lib/api";
-import { getSocket } from "../lib/socket";
-import type { PublicMenu, PublicDish, CartLine } from "../lib/types";
+import type { PublicMenu, PublicDish, CartLine, OrderType } from "../lib/types";
 import { MuxVideo } from "./MuxVideo";
 import { PoweredByTablu } from "../components/TabluMark";
+import { Sheet, CInput, Consent } from "./ui";
+import { setActiveOrder, getActiveOrder } from "./activeOrder";
 
-type View = "menu" | "cart" | "checkout" | "tracker";
+type View = "menu" | "cart" | "checkout";
 
 export default function MenuApp() {
   const { slug = "", n } = useParams();
+  const navigate = useNavigate();
   const { data: menu, isLoading, isError } = useQuery({
     queryKey: ["menu", slug],
     queryFn: () => api<PublicMenu>(`/api/r/${slug}`),
@@ -21,7 +23,7 @@ export default function MenuApp() {
   const [selected, setSelected] = useState<PublicDish | null>(null);
   const [view, setView] = useState<View>("menu");
   const [activeCat, setActiveCat] = useState<string>("all");
-  const [orderId, setOrderId] = useState<string | null>(null);
+  const activeOrderId = getActiveOrder(slug);
 
   const color = menu?.primaryColor || "#F25623";
   const count = cart.reduce((s, l) => s + l.qty, 0);
@@ -46,9 +48,6 @@ export default function MenuApp() {
   if (isLoading) return <Splash>Loading menu…</Splash>;
   if (isError || !menu) return <Splash>Menu not found.</Splash>;
 
-  if (view === "tracker" && orderId)
-    return <OrderTracker menu={menu} orderId={orderId} color={color} tableNumber={n} />;
-
   const filtered = activeCat === "all" ? menu.dishes : menu.dishes.filter((d) => d.categoryId === activeCat);
 
   return (
@@ -72,6 +71,15 @@ export default function MenuApp() {
           ))}
         </div>
       </header>
+
+      {/* Active-order banner — get back to live tracking */}
+      {activeOrderId && (
+        <Link to={`/r/${slug}/order/${activeOrderId}`}
+          className="flex items-center justify-between gap-3 px-4 py-2.5 text-white font-bold text-sm" style={{ background: color }}>
+          <span className="flex items-center gap-2"><span className="w-2 h-2 rounded-full bg-white animate-pulse" /> You have an active order</span>
+          <span className="underline">Track it →</span>
+        </Link>
+      )}
 
       {/* Dish list */}
       <main className="flex-1 p-4 grid grid-cols-1 sm:grid-cols-2 gap-4 pb-28">
@@ -105,7 +113,7 @@ export default function MenuApp() {
       {view === "checkout" && (
         <CheckoutSheet menu={menu} cart={cart} total={total} color={color} tableNumber={n}
           onClose={() => setView("cart")}
-          onPlaced={(id) => { setOrderId(id); setView("tracker"); setCart([]); }} />
+          onPlaced={(id) => { setActiveOrder(slug, id); navigate(`/r/${slug}/order/${id}`); }} />
       )}
     </div>
   );
@@ -225,8 +233,11 @@ function CartSheet({ cart, color, total, onQty, onClose, onCheckout }:
 
 function CheckoutSheet({ menu, cart, total, color, tableNumber, onClose, onPlaced }:
   { menu: PublicMenu; cart: CartLine[]; total: number; color: string; tableNumber?: string; onClose: () => void; onPlaced: (id: string) => void }) {
+  // If scanned at a table, lock to dine-in; otherwise let the guest choose.
+  const [mode, setMode] = useState<OrderType>(tableNumber ? "DINE_IN" : "DINE_IN");
   const [name, setName] = useState("");
   const [table, setTable] = useState(tableNumber || "");
+  const [pickupTime, setPickupTime] = useState("");
   const [phone, setPhone] = useState("");
   const [email, setEmail] = useState("");
   const [mkRest, setMkRest] = useState(false);
@@ -234,13 +245,18 @@ function CheckoutSheet({ menu, cart, total, color, tableNumber, onClose, onPlace
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
 
+  const isPickup = mode === "PICKUP";
+
   async function place() {
     setBusy(true); setErr(null);
     try {
       const order = await api<{ id: string }>(`/api/r/${menu.slug}/orders`, {
         method: "POST",
         body: JSON.stringify({
-          tableNumber: table || undefined, name, phone: phone || undefined, email: email || undefined,
+          type: mode,
+          tableNumber: isPickup ? undefined : table || undefined,
+          pickupTime: isPickup ? (pickupTime || "ASAP") : undefined,
+          name, phone: phone || undefined, email: email || undefined,
           marketingRestaurant: mkRest, marketingTablu: mkTablu,
           items: cart.map((l) => ({ dishId: l.dish.id, qty: l.qty, specialInstructions: l.specialInstructions })),
         }),
@@ -251,13 +267,40 @@ function CheckoutSheet({ menu, cart, total, color, tableNumber, onClose, onPlace
     }
   }
 
+  const canPlace = name && (isPickup ? !!phone : !!table) && !busy;
+
   return (
     <Sheet onClose={onClose} title="Almost there">
-      <label className="block text-[11px] font-extrabold uppercase tracking-wide text-tablu-gray mb-1.5">Table number <span style={{ color }}>*</span></label>
-      <CInput value={table} onChange={(e) => setTable(e.target.value)} placeholder="e.g. 12" inputMode="numeric" autoFocus={!tableNumber} />
+      {/* Dine-in / Pickup toggle (hidden if scanned at a table) */}
+      {!tableNumber && (
+        <div className="grid grid-cols-2 gap-2 mb-4">
+          {(["DINE_IN", "PICKUP"] as OrderType[]).map((m) => (
+            <button key={m} onClick={() => setMode(m)}
+              className={`py-2.5 rounded-med font-extrabold text-sm border-2 transition ${mode === m ? "text-white border-transparent" : "border-tablu-light text-tablu-gray"}`}
+              style={mode === m ? { background: color } : undefined}>
+              {m === "DINE_IN" ? "🍽️ Dine in" : "🛍️ Pickup"}
+            </button>
+          ))}
+        </div>
+      )}
+
+      {isPickup ? (
+        <>
+          <label className="block text-[11px] font-extrabold uppercase tracking-wide text-tablu-gray mb-1.5">Pickup time</label>
+          <CInput value={pickupTime} onChange={(e) => setPickupTime(e.target.value)} placeholder="ASAP — or e.g. 1:30 PM" />
+        </>
+      ) : (
+        <>
+          <label className="block text-[11px] font-extrabold uppercase tracking-wide text-tablu-gray mb-1.5">Table number <span style={{ color }}>*</span></label>
+          <CInput value={table} onChange={(e) => setTable(e.target.value)} placeholder="e.g. 12" inputMode="numeric" autoFocus={!tableNumber} />
+        </>
+      )}
+
       <label className="block text-[11px] font-extrabold uppercase tracking-wide text-tablu-gray mb-1.5">Name <span style={{ color }}>*</span></label>
-      <CInput value={name} onChange={(e) => setName(e.target.value)} placeholder="Your name" autoFocus={!!tableNumber} />
-      <label className="block text-[11px] font-extrabold uppercase tracking-wide text-tablu-gray mb-1.5">Phone <span className="text-tablu-gray">(for receipt & updates)</span></label>
+      <CInput value={name} onChange={(e) => setName(e.target.value)} placeholder="Your name" />
+      <label className="block text-[11px] font-extrabold uppercase tracking-wide text-tablu-gray mb-1.5">
+        Phone {isPickup ? <span style={{ color }}>*</span> : <span className="text-tablu-gray">(for receipt & updates)</span>}
+      </label>
       <CInput value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="+250 788 000 000" inputMode="tel" />
       <label className="block text-[11px] font-extrabold uppercase tracking-wide text-tablu-gray mb-1.5">Email <span className="text-tablu-gray">(optional)</span></label>
       <CInput value={email} onChange={(e) => setEmail(e.target.value)} placeholder="you@email.com" inputMode="email" />
@@ -268,160 +311,17 @@ function CheckoutSheet({ menu, cart, total, color, tableNumber, onClose, onPlace
       </div>
 
       {err && <p className="text-red-600 font-semibold text-sm mb-2">{err}</p>}
-      <button onClick={place} disabled={!name || !table || busy}
+      <button onClick={place} disabled={!canPlace}
         className="w-full text-white font-extrabold py-4 rounded-xl disabled:opacity-40" style={{ background: color }}>
         {busy ? "Placing…" : `Place order · ${total.toLocaleString()} RWF`}
       </button>
       <p className="text-center text-tablu-gray text-xs font-semibold mt-2">
-        {menu.paymentMode === "UPFRONT" ? "You'll pay with MoMo next." : "Pay with MoMo after your meal."}
+        {isPickup ? "Pay with MoMo next — collect when it's ready." : "Track your order live after placing."}
       </p>
     </Sheet>
   );
 }
 
-function OrderTracker({ menu, orderId, color, tableNumber }:
-  { menu: PublicMenu; orderId: string; color: string; tableNumber?: string }) {
-  const STEPS = ["PLACED", "CONFIRMED", "PREPARING", "READY", "DELIVERED"] as const;
-  const [status, setStatus] = useState<string>("PLACED");
-  const [showPay, setShowPay] = useState(false);
-  const [receiptId, setReceiptId] = useState<string | null>(null);
-
-  useEffect(() => {
-    const socket = getSocket();
-    socket.emit("join:order", orderId);
-    const onUpdate = (o: { id: string; status: string }) => { if (o.id === orderId) setStatus(o.status); };
-    const onPaid = (p: { id: string; receiptId: string }) => { if (p.id === orderId) setReceiptId(p.receiptId); };
-    socket.on("order:status", onUpdate);
-    socket.on("payment:success", onPaid);
-    return () => { socket.off("order:status", onUpdate); socket.off("payment:success", onPaid); };
-  }, [orderId]);
-
-  const idx = STEPS.indexOf(status as typeof STEPS[number]);
-  const labels: Record<string, string> = {
-    PLACED: "Order placed", CONFIRMED: "Kitchen confirmed", PREPARING: "Preparing your food", READY: "Ready — on its way", DELIVERED: "Delivered. Enjoy!",
-  };
-
-  return (
-    <div className="min-h-full bg-white text-tablu-black flex flex-col items-center justify-center p-6 text-center">
-      {menu.logoUrl && <img src={menu.logoUrl} alt="" className="h-14 w-14 rounded-large object-contain border border-tablu-light p-1 mb-4" />}
-      <div className="w-20 h-20 rounded-full grid place-items-center text-white text-3xl font-extrabold mb-4" style={{ background: color }}>✓</div>
-      <h1 className="text-2xl font-extrabold">{labels[status]}</h1>
-      {tableNumber && <p className="text-tablu-gray font-bold mt-1">Table {tableNumber}</p>}
-      <p className="text-tablu-gray font-semibold text-sm mt-1">Order #{orderId.slice(-6).toUpperCase()}</p>
-
-      <div className="w-full max-w-xs mt-8 space-y-3">
-        {STEPS.map((s, i) => (
-          <div key={s} className="flex items-center gap-3">
-            <div className="w-6 h-6 rounded-full grid place-items-center text-white text-xs font-extrabold shrink-0"
-              style={{ background: i <= idx ? color : "#DEDEDE" }}>{i <= idx ? "✓" : ""}</div>
-            <span className={`font-bold text-sm ${i <= idx ? "text-tablu-black" : "text-tablu-gray"}`}>{labels[s]}</span>
-          </div>
-        ))}
-      </div>
-
-      <div className="w-full max-w-xs mt-8">
-        {receiptId ? (
-          <>
-            <div className="flex items-center justify-center gap-2 text-green-600 font-extrabold mb-3">✓ Payment received</div>
-            <a href={`/r/receipt/${receiptId}`} className="block w-full text-white font-extrabold py-3.5 rounded-xl" style={{ background: color }}>
-              View receipt
-            </a>
-          </>
-        ) : (
-          <button onClick={() => setShowPay(true)} className="w-full text-white font-extrabold py-3.5 rounded-xl" style={{ background: color }}>
-            Pay with MoMo
-          </button>
-        )}
-      </div>
-
-      <div className="mt-10"><PoweredByTablu /></div>
-
-      {showPay && (
-        <PaymentSheet orderId={orderId} color={color}
-          onClose={() => setShowPay(false)} onPaid={(rid) => { setReceiptId(rid); setShowPay(false); }} />
-      )}
-    </div>
-  );
-}
-
-function PaymentSheet({ orderId, color, onClose, onPaid }:
-  { orderId: string; color: string; onClose: () => void; onPaid: (receiptId: string) => void }) {
-  const [phone, setPhone] = useState("");
-  const [phase, setPhase] = useState<"enter" | "awaiting" | "failed">("enter");
-  const [err, setErr] = useState<string | null>(null);
-
-  async function pay() {
-    setPhase("awaiting"); setErr(null);
-    try {
-      const init = await api<{ simulated: boolean }>(`/api/r/orders/${orderId}/pay`, {
-        method: "POST", body: JSON.stringify({ phone }),
-      });
-      // give the MoMo prompt a realistic beat, then poll
-      const delay = init.simulated ? 3500 : 2000;
-      await new Promise((r) => setTimeout(r, delay));
-      for (let i = 0; i < 30; i++) {
-        const s = await api<{ status: string; receiptId?: string }>(`/api/r/orders/${orderId}/payment-status`);
-        if (s.status === "SUCCESSFUL" && s.receiptId) return onPaid(s.receiptId);
-        if (s.status === "FAILED") { setPhase("failed"); setErr("Payment was declined or timed out."); return; }
-        await new Promise((r) => setTimeout(r, 2500));
-      }
-      setPhase("failed"); setErr("Timed out waiting for confirmation.");
-    } catch (e) {
-      setPhase("failed"); setErr((e as Error).message);
-    }
-  }
-
-  return (
-    <Sheet onClose={onClose} title="Pay with MoMo">
-      {phase === "awaiting" ? (
-        <div className="py-8 text-center">
-          <div className="w-16 h-16 mx-auto rounded-full border-4 border-tablu-light border-t-transparent animate-spin mb-5" style={{ borderTopColor: color }} />
-          <p className="font-extrabold text-lg">Check your phone</p>
-          <p className="text-tablu-gray font-semibold text-sm mt-1">Approve the MTN MoMo prompt to complete payment.</p>
-        </div>
-      ) : (
-        <>
-          <p className="text-tablu-gray font-semibold text-sm mb-4">Enter your MTN MoMo number. You'll get a prompt on your phone to approve.</p>
-          <label className="block text-[11px] font-extrabold uppercase tracking-wide text-tablu-gray mb-1.5">MoMo phone number</label>
-          <CInput value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="+250 788 000 000" inputMode="tel" autoFocus />
-          {err && <p className="text-red-600 font-semibold text-sm mb-2">{err}</p>}
-          <button onClick={pay} disabled={!phone}
-            className="w-full text-white font-extrabold py-4 rounded-xl disabled:opacity-40" style={{ background: color }}>
-            Confirm &amp; Pay
-          </button>
-        </>
-      )}
-    </Sheet>
-  );
-}
-
-// ─── shared primitives ───
-function Sheet({ children, onClose, title }: { children: React.ReactNode; onClose: () => void; title?: string }) {
-  return (
-    <div className="fixed inset-0 z-50 bg-black/40 flex items-end sm:items-center justify-center" onClick={onClose}>
-      <div className="bg-white w-full sm:max-w-md sm:rounded-large rounded-t-2xl max-h-[92vh] overflow-y-auto shadow-2xl" onClick={(e) => e.stopPropagation()}>
-        {title && (
-          <div className="sticky top-0 bg-white px-5 py-4 border-b border-tablu-light flex items-center justify-between">
-            <h2 className="text-xl font-extrabold">{title}</h2>
-            <button onClick={onClose} className="text-tablu-gray font-bold text-2xl leading-none">×</button>
-          </div>
-        )}
-        <div className="p-5">{children}</div>
-      </div>
-    </div>
-  );
-}
-function CInput(props: React.InputHTMLAttributes<HTMLInputElement>) {
-  return <input {...props} className="w-full bg-white rounded-small px-3 py-2.5 mb-4 border border-tablu-light outline-none font-semibold text-sm focus:border-tablu-orange placeholder:text-tablu-gray/60" />;
-}
-function Consent({ checked, onChange, children }: { checked: boolean; onChange: (v: boolean) => void; children: React.ReactNode }) {
-  return (
-    <label className="flex items-start gap-2 cursor-pointer">
-      <input type="checkbox" checked={checked} onChange={(e) => onChange(e.target.checked)} className="mt-0.5 w-4 h-4 accent-tablu-orange" />
-      <span className="font-semibold text-sm text-tablu-gray">{children}</span>
-    </label>
-  );
-}
 function Splash({ children }: { children: React.ReactNode }) {
   return <div className="min-h-full bg-white grid place-items-center text-tablu-gray font-bold">{children}</div>;
 }

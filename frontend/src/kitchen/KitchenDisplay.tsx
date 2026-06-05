@@ -143,11 +143,15 @@ function OrderCard({ o, flash, onAdvance }: { o: KitchenOrder; flash: boolean; o
   return (
     <div className={`bg-white border-2 rounded-large overflow-hidden shadow-sm ${flash ? "ring-4 ring-tablu-orange/40 animate-pulse" : urgency}`}>
       <div className="flex items-center justify-between px-4 py-3 border-b border-tablu-light">
-        <span className="text-2xl font-extrabold">Table {o.table?.number ?? "—"}</span>
+        {o.type === "PICKUP" ? (
+          <span className="text-xl font-extrabold flex items-center gap-2">🛍️ Pickup <span className="text-tablu-orange tracking-widest">{o.pickupCode}</span></span>
+        ) : (
+          <span className="text-2xl font-extrabold">Table {o.table?.number ?? "—"}</span>
+        )}
         <span className={`text-[11px] font-extrabold px-2.5 py-1 rounded-full ${STATUS_COLOR[o.status]}`}>{o.status}</span>
       </div>
       <div className="px-4 py-2 flex items-center justify-between text-tablu-gray">
-        <span className="font-bold text-sm">{o.guest?.name ?? "Guest"}</span>
+        <span className="font-bold text-sm">{o.guest?.name ?? "Guest"}{o.type === "PICKUP" && o.pickupTime ? ` · ${o.pickupTime}` : ""}</span>
         <span className={`font-extrabold text-sm ${mins >= 25 ? "text-red-600" : mins >= 15 ? "text-amber-600" : ""}`}>{mins}m</span>
       </div>
       <div className="px-4 py-2 space-y-2">

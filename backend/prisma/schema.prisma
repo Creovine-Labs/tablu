@@ -166,9 +166,12 @@ model Order {
   table         Table?   @relation(fields: [tableId], references: [id], onDelete: SetNull)
   guestId       String?
   guest         Guest?   @relation(fields: [guestId], references: [id], onDelete: SetNull)
+  type          OrderType    @default(DINE_IN)
   status        OrderStatus  @default(PLACED)
   paymentStatus PaymentStatus @default(PENDING)
   momoReference String?
+  pickupCode    String?      // short code shown at counter for pickup orders
+  pickupTime    String?      // "ASAP" or a requested time
   totalRwf      Int      @default(0)
   createdAt     DateTime @default(now())
 
@@ -176,6 +179,11 @@ model Order {
   receipt       Receipt?
 
   @@index([restaurantId])
+}
+
+enum OrderType {
+  DINE_IN
+  PICKUP
 }
 
 enum OrderStatus {

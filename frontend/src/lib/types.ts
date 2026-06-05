@@ -35,6 +35,24 @@ export interface Table {
 }
 
 export type OrderStatus = "PLACED" | "CONFIRMED" | "PREPARING" | "READY" | "DELIVERED" | "CANCELLED";
+export type OrderType = "DINE_IN" | "PICKUP";
+
+// Standalone Order Page payload (tracker + receipt + pickup pass)
+export interface OrderView {
+  id: string;
+  type: OrderType;
+  status: OrderStatus;
+  paymentStatus: "PENDING" | "SUCCESSFUL" | "FAILED" | "CANCELLED";
+  totalRwf: number;
+  pickupCode: string | null;
+  pickupTime: string | null;
+  momoReference: string | null;
+  createdAt: string;
+  table: { number: string } | null;
+  items: { name: string; qty: number; unitPriceRwf: number }[];
+  receiptId: string | null;
+  restaurant: { name: string; slug: string; logoUrl: string | null; primaryColor: string };
+}
 
 export interface OrderItemRow {
   id: string;
@@ -46,9 +64,12 @@ export interface OrderItemRow {
 
 export interface KitchenOrder {
   id: string;
+  type: OrderType;
   status: OrderStatus;
   totalRwf: number;
   createdAt: string;
+  pickupCode: string | null;
+  pickupTime: string | null;
   table: { number: string } | null;
   guest: { name: string } | null;
   items: OrderItemRow[];

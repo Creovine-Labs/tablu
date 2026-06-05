@@ -7,6 +7,7 @@ import MenuPage from "./admin/MenuPage";
 import MenuApp from "./customer/MenuApp";
 import KitchenDisplay from "./kitchen/KitchenDisplay";
 import ReceiptPage from "./customer/ReceiptPage";
+import OrderPage from "./customer/OrderPage";
 
 function Landing() {
   const [health, setHealth] = useState<string>("checking…");
@@ -42,6 +43,7 @@ export default function App() {
       <Route path="/admin/restaurants/:id/menu" element={<MenuPage />} />
       <Route path="/r/:slug" element={<MenuApp />} />
       <Route path="/r/:slug/table/:n" element={<MenuApp />} />
+      <Route path="/r/:slug/order/:id" element={<OrderPage />} />
       <Route path="/kitchen/:id" element={<KitchenDisplay />} />
       <Route path="/r/receipt/:publicId" element={<ReceiptPage />} />
     </Routes>

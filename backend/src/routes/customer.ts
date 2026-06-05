@@ -51,7 +51,9 @@ router.get("/:slug", async (req, res) => {
 // ─────────── Place order ───────────
 
 const orderSchema = z.object({
+  type: z.enum(["DINE_IN", "PICKUP"]).optional(),
   tableNumber: z.string().optional(),
+  pickupTime: z.string().optional(),
   name: z.string().min(1),
   phone: z.string().optional(),
   email: z.string().optional(),
@@ -64,6 +66,12 @@ const orderSchema = z.object({
   })).min(1),
 });
 
+// short, unambiguous pickup code (no 0/O/1/I)
+function pickupCode() {
+  const a = "ACDEFGHJKLMNPQRSTUVWXYZ2345678";
+  return Array.from({ length: 4 }, () => a[Math.floor(Math.random() * a.length)]).join("");
+}
+
 router.post("/:slug/orders", async (req, res) => {
   const slug = String(req.params.slug);
   const parsed = orderSchema.safeParse(req.body);
@@ -73,9 +81,11 @@ router.post("/:slug/orders", async (req, res) => {
   const restaurant = await prisma.restaurant.findUnique({ where: { slug } });
   if (!restaurant) return res.status(404).json({ error: "Restaurant not found" });
 
-  // Resolve table (optional)
+  const orderType = body.type === "PICKUP" ? "PICKUP" : "DINE_IN";
+
+  // Resolve table (dine-in only)
   let tableId: string | null = null;
-  if (body.tableNumber) {
+  if (orderType === "DINE_IN" && body.tableNumber) {
     const table = await prisma.table.upsert({
       where: { restaurantId_number: { restaurantId: restaurant.id, number: body.tableNumber } },
       update: {},
@@ -140,9 +150,12 @@ router.post("/:slug/orders", async (req, res) => {
   const order = await prisma.order.create({
     data: {
       restaurantId: restaurant.id,
+      type: orderType,
       tableId,
       guestId,
       totalRwf: total,
+      pickupCode: orderType === "PICKUP" ? pickupCode() : null,
+      pickupTime: orderType === "PICKUP" ? (body.pickupTime || "ASAP") : null,
       items: { create: itemData },
     },
     include: { items: true, table: true, guest: true },
@@ -260,14 +273,33 @@ router.get("/receipt/:publicId", async (req, res) => {
   });
 });
 
-// Order status (for the customer tracker; socket is primary, this is a fallback/poll)
+// Full order for the standalone Order Page (tracker + receipt + pickup pass).
 router.get("/orders/:id", async (req, res) => {
   const order = await prisma.order.findUnique({
     where: { id: String(req.params.id) },
-    include: { items: true, table: true },
+    include: { items: true, table: true, restaurant: true, receipt: true },
   });
   if (!order) return res.status(404).json({ error: "Not found" });
-  res.json(order);
+  res.json({
+    id: order.id,
+    type: order.type,
+    status: order.status,
+    paymentStatus: order.paymentStatus,
+    totalRwf: order.totalRwf,
+    pickupCode: order.pickupCode,
+    pickupTime: order.pickupTime,
+    momoReference: order.momoReference,
+    createdAt: order.createdAt,
+    table: order.table ? { number: order.table.number } : null,
+    items: order.items.map((i) => ({ name: i.nameSnapshot, qty: i.qty, unitPriceRwf: i.unitPriceRwf })),
+    receiptId: order.receipt?.publicId ?? null,
+    restaurant: {
+      name: order.restaurant.name,
+      slug: order.restaurant.slug,
+      logoUrl: order.restaurant.logoUrl,
+      primaryColor: order.restaurant.primaryColor,
+    },
+  });
 });
 
 export default router;
