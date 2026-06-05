@@ -13,10 +13,18 @@ import dashboardRouter from "./routes/dashboard.js";
 const app = express();
 const PORT = Number(process.env.PORT) || 4000;
 // Comma-separated list of allowed origins (prod Vercel URL(s) + localhost).
+// Trailing slashes are stripped so "https://app.vercel.app/" still matches.
+const stripSlash = (s: string) => s.trim().replace(/\/+$/, "");
 const ORIGINS = (process.env.CLIENT_ORIGIN || "http://localhost:5173")
-  .split(",").map((s) => s.trim()).filter(Boolean);
+  .split(",").map(stripSlash).filter(Boolean);
 
-app.use(cors({ origin: ORIGINS }));
+const corsOrigin = (origin: string | undefined, cb: (e: Error | null, ok?: boolean) => void) => {
+  // allow non-browser clients (no Origin) and any matching origin
+  if (!origin || ORIGINS.includes(stripSlash(origin))) return cb(null, true);
+  cb(null, false);
+};
+
+app.use(cors({ origin: corsOrigin }));
 app.use(express.json());
 
 app.get("/health", (_req, res) => {
