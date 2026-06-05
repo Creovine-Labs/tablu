@@ -247,6 +247,14 @@ function CheckoutSheet({ menu, cart, total, color, tableNumber, onClose, onPlace
 
   const isPickup = mode === "PICKUP";
 
+  // switching modes clears the other mode's field, so we never submit both
+  function switchMode(m: OrderType) {
+    setMode(m);
+    if (m === "PICKUP") setTable("");
+    else setPickupTime("");
+    setErr(null);
+  }
+
   async function place() {
     setBusy(true); setErr(null);
     try {
@@ -271,16 +279,22 @@ function CheckoutSheet({ menu, cart, total, color, tableNumber, onClose, onPlace
 
   return (
     <Sheet onClose={onClose} title="Almost there">
-      {/* Dine-in / Pickup toggle (hidden if scanned at a table) */}
+      {/* Dine-in / Pickup choice (hidden if scanned at a table) */}
       {!tableNumber && (
-        <div className="grid grid-cols-2 gap-2 mb-4">
-          {(["DINE_IN", "PICKUP"] as OrderType[]).map((m) => (
-            <button key={m} onClick={() => setMode(m)}
-              className={`py-2.5 rounded-med font-extrabold text-sm border-2 transition ${mode === m ? "text-white border-transparent" : "border-tablu-light text-tablu-gray"}`}
-              style={mode === m ? { background: color } : undefined}>
-              {m === "DINE_IN" ? "🍽️ Dine in" : "🛍️ Pickup"}
-            </button>
-          ))}
+        <div className="mb-5">
+          <p className="text-[11px] font-extrabold uppercase tracking-wide text-tablu-gray mb-2">How would you like your order?</p>
+          <div className="grid grid-cols-2 gap-3">
+            {([["DINE_IN", "🍽️", "Dine in", "Eat at the restaurant"], ["PICKUP", "🛍️", "Pickup", "Order ahead, collect & go"]] as const).map(([m, icon, title, sub]) => (
+              <button key={m} onClick={() => switchMode(m)}
+                className={`relative text-left p-3 rounded-large border-2 transition ${mode === m ? "border-transparent text-white shadow-md" : "border-tablu-light bg-white text-tablu-black"}`}
+                style={mode === m ? { background: color } : undefined}>
+                {mode === m && <span className="absolute top-2 right-2 text-xs">✓</span>}
+                <div className="text-2xl mb-1">{icon}</div>
+                <div className="font-extrabold text-sm leading-tight">{title}</div>
+                <div className={`text-[11px] font-semibold ${mode === m ? "text-white/85" : "text-tablu-gray"}`}>{sub}</div>
+              </button>
+            ))}
+          </div>
         </div>
       )}
 

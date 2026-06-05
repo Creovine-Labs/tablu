@@ -37,26 +37,35 @@ export default function OrderPage() {
     return () => { socket.off("order:status", onStatus); socket.off("payment:success", onPaid); };
   }, [id, refetch]);
 
+  const curStatus = status || order?.status;
+  const restaurant = order?.restaurant;
+
+  // clear the "active order" memory once it's complete (side-effect, not during render)
+  useEffect(() => {
+    if (curStatus === "DELIVERED" && restaurant?.slug) clearActiveOrder(restaurant.slug);
+  }, [curStatus, restaurant?.slug]);
+
   if (isLoading) return <Splash>Loading your order…</Splash>;
   if (isError || !order) return <Splash>Order not found.</Splash>;
 
-  const color = order.restaurant.primaryColor;
+  // defensive fallbacks so a missing field can never blank the page
+  const color = restaurant?.primaryColor || "#F25623";
+  const rName = restaurant?.name || "Your order";
+  const rSlug = restaurant?.slug || "";
   const isPickup = order.type === "PICKUP";
-  const curStatus = status || order.status;
-  const idx = STEPS.indexOf(curStatus as OrderStatus);
+  const cur = (curStatus || "PLACED") as OrderStatus;
+  const idx = STEPS.indexOf(cur);
   const labels = LABELS[isPickup ? "PICKUP" : "DINE_IN"];
   const paid = order.paymentStatus === "SUCCESSFUL" || !!receiptId;
   const rid = receiptId || order.receiptId;
 
-  if (curStatus === "DELIVERED") clearActiveOrder(order.restaurant.slug);
-
   return (
     <div className="min-h-full bg-white text-tablu-black flex flex-col items-center p-6">
       <div className="w-full max-w-sm flex flex-col items-center text-center pt-6">
-        {order.restaurant.logoUrl
-          ? <img src={order.restaurant.logoUrl} alt="" className="h-14 w-14 rounded-large object-contain border border-tablu-light p-1 mb-3" />
-          : <div className="h-14 w-14 rounded-large grid place-items-center text-white text-2xl font-extrabold mb-3" style={{ background: color }}>{order.restaurant.name[0]}</div>}
-        <p className="font-bold text-tablu-gray text-sm">{order.restaurant.name}</p>
+        {restaurant?.logoUrl
+          ? <img src={restaurant.logoUrl} alt="" className="h-14 w-14 rounded-large object-contain border border-tablu-light p-1 mb-3" />
+          : <div className="h-14 w-14 rounded-large grid place-items-center text-white text-2xl font-extrabold mb-3" style={{ background: color }}>{rName[0]}</div>}
+        <p className="font-bold text-tablu-gray text-sm">{rName}</p>
 
         {/* Pickup pass OR table */}
         {isPickup ? (
@@ -69,7 +78,7 @@ export default function OrderPage() {
           order.table && <p className="font-extrabold mt-1">Table {order.table.number}</p>
         )}
 
-        <h1 className="text-2xl font-extrabold mt-5">{labels[curStatus] || curStatus}</h1>
+        <h1 className="text-2xl font-extrabold mt-5">{labels[cur] || cur}</h1>
         <p className="text-tablu-gray font-semibold text-sm">Order #{order.id.slice(-6).toUpperCase()}</p>
 
         {/* Tracker */}
@@ -113,7 +122,7 @@ export default function OrderPage() {
           )}
         </div>
 
-        <a href={`/r/${order.restaurant.slug}`} className="mt-4 text-tablu-gray font-bold text-sm">← Back to menu</a>
+        <a href={`/r/${rSlug}`} className="mt-4 text-tablu-gray font-bold text-sm">← Back to menu</a>
         <div className="mt-8"><PoweredByTablu /></div>
       </div>
 
