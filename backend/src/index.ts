@@ -27,8 +27,10 @@ const corsOrigin = (origin: string | undefined, cb: (e: Error | null, ok?: boole
 app.use(cors({ origin: corsOrigin }));
 app.use(express.json());
 
+// `build` flips when a new deploy goes live — used to confirm Railway redeployed.
+const BUILD = "order-pickup-v2";
 app.get("/health", (_req, res) => {
-  res.json({ ok: true, service: "tablu-backend", time: new Date().toISOString() });
+  res.json({ ok: true, service: "tablu-backend", build: BUILD, time: new Date().toISOString() });
 });
 
 // Route modules — mounted as each phase lands:
