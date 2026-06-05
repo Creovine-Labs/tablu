@@ -8,8 +8,9 @@ import { createDirectUpload, resolveUpload, muxConfigured } from "../lib/mux.js"
 const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 10 * 1024 * 1024 } });
 const router = Router();
 
-const CLIENT = process.env.CLIENT_ORIGIN || "http://localhost:5173";
-const PUBLIC_BASE = process.env.PUBLIC_MENU_BASE || CLIENT; // where customer menu lives
+const CLIENT = (process.env.CLIENT_ORIGIN || "http://localhost:5173").split(",")[0].trim();
+// where the customer menu lives — trailing slash stripped so QR URLs are clean
+const PUBLIC_BASE = (process.env.PUBLIC_MENU_BASE || CLIENT).replace(/\/+$/, "");
 
 // ─────────── Categories ───────────
 

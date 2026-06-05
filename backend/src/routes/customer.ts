@@ -82,7 +82,7 @@ router.post("/:slug/orders", async (req, res) => {
       create: {
         restaurantId: restaurant.id,
         number: body.tableNumber,
-        qrUrl: `${process.env.PUBLIC_MENU_BASE || process.env.CLIENT_ORIGIN}/r/${slug}/table/${body.tableNumber}`,
+        qrUrl: `${(process.env.PUBLIC_MENU_BASE || process.env.CLIENT_ORIGIN || "").replace(/\/+$/, "")}/r/${slug}/table/${body.tableNumber}`,
       },
     });
     tableId = table.id;
