@@ -140,19 +140,28 @@ function OrderCard({ o, flash, onAdvance }: { o: KitchenOrder; flash: boolean; o
   const urgency = mins >= 25 ? "border-red-500 ring-2 ring-red-200" : mins >= 15 ? "border-amber-500 ring-2 ring-amber-100" : "border-tablu-light";
   const next = NEXT[o.status];
 
+  const isPickup = o.type === "PICKUP";
+
   return (
-    <div className={`bg-white border-2 rounded-large overflow-hidden shadow-sm ${flash ? "ring-4 ring-tablu-orange/40 animate-pulse" : urgency}`}>
+    <div className={`bg-white border-2 rounded-large overflow-hidden shadow-sm ${flash ? "ring-4 ring-tablu-orange/40 animate-pulse" : isPickup ? "border-purple-500 ring-2 ring-purple-100" : urgency}`}>
+      {/* Pickup gets a bold, unmistakable banner */}
+      {isPickup && (
+        <div className="bg-purple-600 text-white px-4 py-1.5 flex items-center justify-between">
+          <span className="font-extrabold text-sm tracking-wide">🛍️ PICKUP ORDER</span>
+          <span className="font-extrabold text-sm">⏱ {o.pickupTime || "ASAP"}</span>
+        </div>
+      )}
       <div className="flex items-center justify-between px-4 py-3 border-b border-tablu-light">
-        {o.type === "PICKUP" ? (
-          <span className="text-xl font-extrabold flex items-center gap-2">🛍️ Pickup <span className="text-tablu-orange tracking-widest">{o.pickupCode}</span></span>
+        {isPickup ? (
+          <span className="text-2xl font-extrabold">Code <span className="text-purple-600 tracking-widest">{o.pickupCode ?? "—"}</span></span>
         ) : (
           <span className="text-2xl font-extrabold">Table {o.table?.number ?? "—"}</span>
         )}
         <span className={`text-[11px] font-extrabold px-2.5 py-1 rounded-full ${STATUS_COLOR[o.status]}`}>{o.status}</span>
       </div>
       <div className="px-4 py-2 flex items-center justify-between text-tablu-gray">
-        <span className="font-bold text-sm">{o.guest?.name ?? "Guest"}{o.type === "PICKUP" && o.pickupTime ? ` · ${o.pickupTime}` : ""}</span>
-        <span className={`font-extrabold text-sm ${mins >= 25 ? "text-red-600" : mins >= 15 ? "text-amber-600" : ""}`}>{mins}m</span>
+        <span className="font-bold text-sm">{o.guest?.name ?? "Guest"}{isPickup ? " · for pickup" : ""}</span>
+        <span className={`font-extrabold text-sm ${mins >= 25 ? "text-red-600" : mins >= 15 ? "text-amber-600" : ""}`}>{mins}m ago</span>
       </div>
       <div className="px-4 py-2 space-y-2">
         {o.items.map((it) => (

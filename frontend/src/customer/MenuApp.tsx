@@ -300,8 +300,16 @@ function CheckoutSheet({ menu, cart, total, color, tableNumber, onClose, onPlace
 
       {isPickup ? (
         <>
-          <label className="block text-[11px] font-extrabold uppercase tracking-wide text-tablu-gray mb-1.5">Pickup time</label>
-          <CInput value={pickupTime} onChange={(e) => setPickupTime(e.target.value)} placeholder="ASAP — or e.g. 1:30 PM" />
+          <label className="block text-[11px] font-extrabold uppercase tracking-wide text-tablu-gray mb-1.5">When will you pick up?</label>
+          <div className="flex flex-wrap gap-2 mb-4">
+            {["ASAP", "In 15 min", "In 30 min", "In 45 min", "In 1 hour"].map((t) => (
+              <button key={t} onClick={() => setPickupTime(t)}
+                className={`px-3 py-1.5 rounded-full font-bold text-sm border-2 transition ${(pickupTime || "ASAP") === t ? "text-white border-transparent" : "border-tablu-light text-tablu-gray"}`}
+                style={(pickupTime || "ASAP") === t ? { background: color } : undefined}>
+                {t}
+              </button>
+            ))}
+          </div>
         </>
       ) : (
         <>
