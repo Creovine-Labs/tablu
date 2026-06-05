@@ -376,19 +376,35 @@ interface Overview {
 }
 
 function DashboardSection({ restaurantId }: { restaurantId: string }) {
+  const qc = useQueryClient();
   const { data, refetch, isFetching } = useQuery({
     queryKey: ["overview", restaurantId],
     queryFn: () => api<Overview>(`/api/dashboard/${restaurantId}/overview`),
     refetchInterval: 10000,
   });
 
+  const reset = useMutation({
+    mutationFn: () => fetch(`${API_URL}/api/admin/restaurants/${restaurantId}/reset`, { method: "POST" }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["overview", restaurantId] });
+      qc.invalidateQueries({ queryKey: ["guests", restaurantId] });
+    },
+  });
+
   return (
     <>
-      <div className="flex items-center justify-between mb-6">
+      <div className="flex items-center justify-between mb-6 gap-3">
         <h2 className="text-2xl font-extrabold">Today</h2>
-        <button onClick={() => refetch()} className="text-tablu-gray font-bold text-sm hover:text-tablu-black">
-          {isFetching ? "Refreshing…" : "↻ Refresh"}
-        </button>
+        <div className="flex items-center gap-3">
+          <button onClick={() => refetch()} className="text-tablu-gray font-bold text-sm hover:text-tablu-black">
+            {isFetching ? "Refreshing…" : "↻ Refresh"}
+          </button>
+          <button
+            onClick={() => confirm("Clear ALL orders and guests for this restaurant? The menu is kept. This gives you a fresh, empty dashboard. Cannot be undone.") && reset.mutate()}
+            className="font-bold text-sm border-2 border-tablu-light text-tablu-gray px-3 py-1.5 rounded-med hover:border-red-400 hover:text-red-600 transition">
+            {reset.isPending ? "Clearing…" : "Reset demo data"}
+          </button>
+        </div>
       </div>
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
         <BigStat label="Revenue today" value={`${(data?.revenueToday ?? 0).toLocaleString()} RWF`} accent />

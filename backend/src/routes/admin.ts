@@ -94,6 +94,18 @@ router.patch("/restaurants/:id", upload.single("logo"), async (req, res) => {
   res.json(updated);
 });
 
+// Reset a restaurant's demo data — clears orders + guests, KEEPS the menu.
+// Gives a fresh, empty dashboard to present from.
+router.post("/restaurants/:id/reset", async (req, res) => {
+  const id = String(req.params.id);
+  const restaurant = await prisma.restaurant.findUnique({ where: { id } });
+  if (!restaurant) return res.status(404).json({ error: "Not found" });
+  // Orders cascade to their items + receipts; RestaurantGuest clears the CRM.
+  const orders = await prisma.order.deleteMany({ where: { restaurantId: id } });
+  const guests = await prisma.restaurantGuest.deleteMany({ where: { restaurantId: id } });
+  res.json({ ordersCleared: orders.count, guestsCleared: guests.count });
+});
+
 // Delete restaurant
 router.delete("/restaurants/:id", async (req, res) => {
   const id = String(req.params.id);
