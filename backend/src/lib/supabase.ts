@@ -1,4 +1,5 @@
 import { createClient } from "@supabase/supabase-js";
+import sharp from "sharp";
 
 const url = process.env.SUPABASE_URL!;
 const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
@@ -28,16 +29,27 @@ export async function ensureBrandingBucket() {
   await ensureBucket(MENU_BUCKET, "10MB");
 }
 
-/** Upload a dish image, return its public URL. */
+// Every dish image is normalized to a uniform 4:3 frame so the menu grid looks
+// consistent (matches the frontend's aspect-[4/3] cards) and stays lightweight.
+const DISH_W = 1080;
+const DISH_H = 810; // 1080 × 810 = 4:3
+
+/** Upload a dish image — normalized to a uniform 4:3 WebP — return its public URL. */
 export async function uploadDishImage(
   restaurantSlug: string,
   file: { buffer: Buffer; mimetype: string; originalname: string }
 ): Promise<string> {
-  const ext = file.originalname.split(".").pop()?.toLowerCase() || "jpg";
-  const path = `${restaurantSlug}/dish-${Date.now()}.${ext}`;
+  // Resize + center-crop to a fixed 4:3 box, then compress to WebP.
+  const normalized = await sharp(file.buffer)
+    .rotate() // respect EXIF orientation (phone photos)
+    .resize(DISH_W, DISH_H, { fit: "cover", position: "centre" })
+    .webp({ quality: 82 })
+    .toBuffer();
+
+  const path = `${restaurantSlug}/dish-${Date.now()}.webp`;
   const { error } = await supabase.storage
     .from(MENU_BUCKET)
-    .upload(path, file.buffer, { contentType: file.mimetype, upsert: true });
+    .upload(path, normalized, { contentType: "image/webp", upsert: true });
   if (error) throw error;
   return supabase.storage.from(MENU_BUCKET).getPublicUrl(path).data.publicUrl;
 }
