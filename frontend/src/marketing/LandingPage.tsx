@@ -53,32 +53,16 @@ function DemoModal() {
   async function submit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     const form = e.currentTarget;
-    const data = Object.fromEntries(new FormData(form) as unknown as Iterable<[string, string]>) as Record<string, string>;
-
-    // Fallback until the Web3Forms key is set: open a pre-filled email to sarah.
-    if (WEB3FORMS_KEY.startsWith("REPLACE")) {
-      const body = `Name: ${data.name}\nRestaurant: ${data.restaurant}\nEmail: ${data.email}\nPhone: ${data.phone || "-"}\n\n${data.message || ""}`;
-      window.location.href = `mailto:${CONTACT}?subject=${encodeURIComponent("Tablu demo request")}&body=${encodeURIComponent(body)}`;
-      setStatus("done");
-      return;
-    }
-
     setStatus("sending"); setErr("");
-    const payload = {
-      access_key: WEB3FORMS_KEY,
-      subject: "New Tablu demo request",
-      from_name: "Tablu website",
-      ...data,
-    };
+    const formData = new FormData(form);
+    formData.append("access_key", WEB3FORMS_KEY);
+    formData.append("subject", "New Tablu demo request");
+    formData.append("from_name", "Tablu website");
     try {
-      const res = await fetch("https://api.web3forms.com/submit", {
-        method: "POST",
-        headers: { "Content-Type": "application/json", Accept: "application/json" },
-        body: JSON.stringify(payload),
-      });
-      const j = await res.json();
-      if (j.success) setStatus("done");
-      else { setStatus("error"); setErr(j.message || "Something went wrong. Please email sarah@creovine.com."); }
+      const res = await fetch("https://api.web3forms.com/submit", { method: "POST", body: formData });
+      const data = await res.json();
+      if (data.success) setStatus("done");
+      else { setStatus("error"); setErr(data.message || "Something went wrong. Please email sarah@creovine.com."); }
     } catch {
       setStatus("error"); setErr("Network error. Please email sarah@creovine.com.");
     }
