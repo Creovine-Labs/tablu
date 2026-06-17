@@ -18,8 +18,7 @@ const CONTACT = "sarah@creovine.com";
 const CREAM = "#F6F1EA";
 
 // Web3Forms access key — demo-form submissions are emailed to sarah@creovine.com.
-// Get a free key (20s) at https://web3forms.com using sarah@creovine.com, then paste it here.
-const WEB3FORMS_KEY = "REPLACE_WITH_WEB3FORMS_ACCESS_KEY";
+const WEB3FORMS_KEY = "081ae366-d1bb-4c63-b857-8adb3a23efb3";
 
 /** Open the "Book a demo" modal from anywhere on the page. */
 const openDemo = () => window.dispatchEvent(new CustomEvent("tablu:demo"));
