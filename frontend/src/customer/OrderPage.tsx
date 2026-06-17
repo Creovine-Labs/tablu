@@ -11,7 +11,7 @@ import { clearActiveOrder } from "./activeOrder";
 const STEPS: OrderStatus[] = ["PLACED", "CONFIRMED", "PREPARING", "READY", "DELIVERED"];
 
 const LABELS: Record<"DINE_IN" | "PICKUP", Record<string, string>> = {
-  DINE_IN: { PLACED: "Order placed", CONFIRMED: "Kitchen confirmed", PREPARING: "Preparing your food", READY: "Ready — on its way", DELIVERED: "Delivered. Enjoy!" },
+  DINE_IN: { PLACED: "Order placed", CONFIRMED: "Kitchen confirmed", PREPARING: "Preparing your food", READY: "Ready, on its way", DELIVERED: "Delivered. Enjoy!" },
   PICKUP: { PLACED: "Order placed", CONFIRMED: "Kitchen confirmed", PREPARING: "Preparing your order", READY: "Ready for pickup!", DELIVERED: "Picked up. Enjoy!" },
 };
 

@@ -18,7 +18,7 @@ export function MuxVideo({ src, poster, className, inline = true, controls = fal
     if (!video) return;
 
     // The autoplay attribute alone is unreliable once hls.js attaches media
-    // after mount — kick playback explicitly when enough data is ready.
+    // after mount, kick playback explicitly when enough data is ready.
     const tryPlay = () => { if (inline) video.play().catch(() => {}); };
 
     let hls: Hls | undefined;
@@ -32,7 +32,7 @@ export function MuxVideo({ src, poster, className, inline = true, controls = fal
         enableWorker: true,
         capLevelToPlayerSize: true, // never fetch a 1080p rendition for a small card
         startLevel: -1, // auto bitrate based on bandwidth
-        maxBufferLength: 10, // keep buffers lean — a menu can have many videos
+        maxBufferLength: 10, // keep buffers lean, a menu can have many videos
         backBufferLength: 5,
       });
       hls.loadSource(src);

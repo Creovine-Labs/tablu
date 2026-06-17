@@ -153,9 +153,9 @@ function OrderCard({ o, flash, onAdvance }: { o: KitchenOrder; flash: boolean; o
       )}
       <div className="flex items-center justify-between px-4 py-3 border-b border-tablu-light">
         {isPickup ? (
-          <span className="text-2xl font-extrabold">Code <span className="text-purple-600 tracking-widest">{o.pickupCode ?? "—"}</span></span>
+          <span className="text-2xl font-extrabold">Code <span className="text-purple-600 tracking-widest">{o.pickupCode ?? "-"}</span></span>
         ) : (
-          <span className="text-2xl font-extrabold">Table {o.table?.number ?? "—"}</span>
+          <span className="text-2xl font-extrabold">Table {o.table?.number ?? "-"}</span>
         )}
         <span className={`text-[11px] font-extrabold px-2.5 py-1 rounded-full ${STATUS_COLOR[o.status]}`}>{o.status}</span>
       </div>

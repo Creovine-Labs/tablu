@@ -72,7 +72,7 @@ export default function MenuApp() {
         </div>
       </header>
 
-      {/* Active-order banner — get back to live tracking */}
+      {/* Active-order banner: get back to live tracking */}
       {activeOrderId && (
         <Link to={`/r/${slug}/order/${activeOrderId}`}
           className="flex items-center justify-between gap-3 px-4 py-2.5 text-white font-bold text-sm" style={{ background: color }}>
@@ -338,7 +338,7 @@ function CheckoutSheet({ menu, cart, total, color, tableNumber, onClose, onPlace
         {busy ? "Placing…" : `Place order · ${total.toLocaleString()} RWF`}
       </button>
       <p className="text-center text-tablu-gray text-xs font-semibold mt-2">
-        {isPickup ? "Pay with MoMo next — collect when it's ready." : "Track your order live after placing."}
+        {isPickup ? "Pay with MoMo next. Collect when it's ready." : "Track your order live after placing."}
       </p>
     </Sheet>
   );

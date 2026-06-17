@@ -1,4 +1,4 @@
-/** Tablu logo — used directly on white/light platform surfaces. */
+/** Tablu logo, used directly on white/light platform surfaces. */
 export function TabluLogo({ className = "h-8" }: { className?: string }) {
   return <img src="/brand/tablu-logo.png" alt="Tablu" className={className} />;
 }

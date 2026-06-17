@@ -31,7 +31,7 @@ export function Consent({ checked, onChange, children }: { checked: boolean; onC
   );
 }
 
-/** MoMo payment sheet — initiate, "check your phone", poll to success. */
+/** MoMo payment sheet: initiate, "check your phone", poll to success. */
 export function PaymentSheet({ orderId, color, onClose, onPaid }:
   { orderId: string; color: string; onClose: () => void; onPaid: (receiptId: string) => void }) {
   const [phone, setPhone] = useState("");

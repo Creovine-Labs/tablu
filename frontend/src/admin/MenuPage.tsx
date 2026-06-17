@@ -292,7 +292,7 @@ function AddDishModal({ restaurantId, categories, onClose }:
               <L>Category</L>
               <select value={categoryId} onChange={(e) => setCategoryId(e.target.value)}
                 className="w-full bg-white rounded-small px-3 py-2.5 border border-tablu-light outline-none font-semibold text-sm focus:border-tablu-orange">
-                <option value="">— none —</option>
+                <option value="">(none)</option>
                 {categories.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
               </select>
             </div>
@@ -302,7 +302,7 @@ function AddDishModal({ restaurantId, categories, onClose }:
             className="w-full bg-white rounded-small px-3 py-2.5 mb-4 border border-tablu-light outline-none font-semibold text-sm focus:border-tablu-orange resize-none" rows={2} />
           <L>Dietary tags (comma-separated)</L>
           <I value={tags} onChange={(e) => setTags(e.target.value)} placeholder="Spicy, Popular" />
-          <L>Photo (optional — video added after)</L>
+          <L>Photo (optional, video added after)</L>
           <div className="flex items-center gap-4 mb-5">
             <div className="w-20 h-20 rounded-med bg-tablu-light/40 border border-tablu-light grid place-items-center overflow-hidden shrink-0">
               {preview ? <img src={preview} alt="" className="w-full h-full object-cover" /> : <span className="text-tablu-gray text-[9px] font-bold uppercase">Photo</span>}
@@ -361,7 +361,7 @@ function QrCodeSection({ restaurantId, restaurant }: { restaurantId: string; res
         <p className="font-bold text-sm">💡 How it works</p>
         <p className="text-tablu-gray font-semibold text-sm mt-1">
           Same QR on every table. The customer enters their table number at checkout, so the kitchen always
-          knows where to deliver — no need to print a different code per table.
+          knows where to deliver, no need to print a different code per table.
         </p>
       </div>
     </div>
