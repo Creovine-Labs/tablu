@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
 
 /* ------------------------------------------------------------------ *
@@ -14,22 +14,113 @@ import { Link } from "react-router-dom";
  * ------------------------------------------------------------------ */
 
 const A = (f: string) => `/marketing/${f}`;
-const CONTACT = "hello@tabluhq.com";
-const DEMO = `mailto:${CONTACT}?subject=Tablu%20demo`;
+const CONTACT = "sarah@creovine.com";
 const CREAM = "#F6F1EA";
+
+// Web3Forms access key — demo-form submissions are emailed to sarah@creovine.com.
+// Get a free key (20s) at https://web3forms.com using sarah@creovine.com, then paste it here.
+const WEB3FORMS_KEY = "REPLACE_WITH_WEB3FORMS_ACCESS_KEY";
+
+/** Open the "Book a demo" modal from anywhere on the page. */
+const openDemo = () => window.dispatchEvent(new CustomEvent("tablu:demo"));
 
 /* ---------- building blocks ---------- */
 
-function Pill({ href, to, children, variant = "solid", dark = false }: {
-  href?: string; to?: string; children: React.ReactNode; variant?: "solid" | "outline"; dark?: boolean;
+function Pill({ href, to, onClick, children, variant = "solid", dark = false }: {
+  href?: string; to?: string; onClick?: () => void; children: React.ReactNode; variant?: "solid" | "outline"; dark?: boolean;
 }) {
   const base = "inline-flex items-center justify-center font-extrabold px-7 py-3.5 rounded-full transition text-sm sm:text-base";
   const styles = variant === "solid"
     ? "bg-tablu-orange text-white hover:brightness-95 shadow-sm"
     : dark ? "border-2 border-white/30 text-white hover:bg-white/10" : "border-2 border-tablu-black/15 text-tablu-black hover:border-tablu-black/40";
   const cls = `${base} ${styles}`;
+  if (onClick) return <button type="button" onClick={onClick} className={cls}>{children}</button>;
   if (to) return <Link to={to} className={cls}>{children}</Link>;
   return <a href={href} className={cls}>{children}</a>;
+}
+
+/** Demo-request modal. Submits to Web3Forms, which emails sarah@creovine.com. */
+function DemoModal() {
+  const [open, setOpen] = useState(false);
+  const [status, setStatus] = useState<"idle" | "sending" | "done" | "error">("idle");
+  const [err, setErr] = useState("");
+  useEffect(() => {
+    const h = () => { setStatus("idle"); setErr(""); setOpen(true); };
+    window.addEventListener("tablu:demo", h);
+    return () => window.removeEventListener("tablu:demo", h);
+  }, []);
+  if (!open) return null;
+
+  async function submit(e: React.FormEvent<HTMLFormElement>) {
+    e.preventDefault();
+    const form = e.currentTarget;
+    const data = Object.fromEntries(new FormData(form) as unknown as Iterable<[string, string]>) as Record<string, string>;
+
+    // Fallback until the Web3Forms key is set: open a pre-filled email to sarah.
+    if (WEB3FORMS_KEY.startsWith("REPLACE")) {
+      const body = `Name: ${data.name}\nRestaurant: ${data.restaurant}\nEmail: ${data.email}\nPhone: ${data.phone || "-"}\n\n${data.message || ""}`;
+      window.location.href = `mailto:${CONTACT}?subject=${encodeURIComponent("Tablu demo request")}&body=${encodeURIComponent(body)}`;
+      setStatus("done");
+      return;
+    }
+
+    setStatus("sending"); setErr("");
+    const payload = {
+      access_key: WEB3FORMS_KEY,
+      subject: "New Tablu demo request",
+      from_name: "Tablu website",
+      ...data,
+    };
+    try {
+      const res = await fetch("https://api.web3forms.com/submit", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Accept: "application/json" },
+        body: JSON.stringify(payload),
+      });
+      const j = await res.json();
+      if (j.success) setStatus("done");
+      else { setStatus("error"); setErr(j.message || "Something went wrong. Please email sarah@creovine.com."); }
+    } catch {
+      setStatus("error"); setErr("Network error. Please email sarah@creovine.com.");
+    }
+  }
+
+  const field = "w-full bg-white rounded-med px-4 py-3 border border-tablu-light outline-none font-semibold text-sm focus:border-tablu-orange placeholder:text-tablu-gray/50";
+
+  return (
+    <div className="fixed inset-0 z-[60] bg-black/60 flex items-end sm:items-center justify-center sm:p-4" onClick={() => setOpen(false)}>
+      <div className="bg-white w-full sm:max-w-md sm:rounded-2xl rounded-t-2xl max-h-[94vh] overflow-y-auto shadow-2xl" onClick={(e) => e.stopPropagation()}>
+        <div className="sticky top-0 bg-white px-6 py-4 border-b border-tablu-light flex items-center justify-between">
+          <h2 className="text-xl font-extrabold text-tablu-black">Book a demo</h2>
+          <button onClick={() => setOpen(false)} className="text-tablu-gray font-bold text-2xl leading-none" aria-label="Close">×</button>
+        </div>
+        {status === "done" ? (
+          <div className="p-8 text-center">
+            <div className="w-14 h-14 mx-auto rounded-full bg-green-500 grid place-items-center text-white text-2xl font-extrabold">✓</div>
+            <p className="mt-4 text-xl font-extrabold text-tablu-black">Request sent!</p>
+            <p className="mt-2 text-tablu-gray font-semibold">Thanks — we&apos;ll be in touch shortly to set up your demo.</p>
+            <button onClick={() => setOpen(false)} className="mt-6 bg-tablu-orange text-white font-extrabold px-7 py-3 rounded-full">Done</button>
+          </div>
+        ) : (
+          <form onSubmit={submit} className="p-6 space-y-3">
+            <p className="text-tablu-gray font-semibold text-sm">Tell us a little about your restaurant and we&apos;ll set up a live walkthrough.</p>
+            <input type="text" name="botcheck" className="hidden" tabIndex={-1} autoComplete="off" />
+            <input name="name" required placeholder="Your name" className={field} />
+            <input name="restaurant" required placeholder="Restaurant name" className={field} />
+            <input name="email" type="email" required placeholder="Email" className={field} />
+            <input name="phone" placeholder="Phone / WhatsApp" className={field} />
+            <textarea name="message" rows={3} placeholder="Anything we should know? (optional)" className={field} />
+            {status === "error" && <p className="text-red-600 font-semibold text-sm">{err}</p>}
+            <button type="submit" disabled={status === "sending"}
+              className="w-full bg-tablu-orange text-white font-extrabold py-3.5 rounded-full disabled:opacity-50">
+              {status === "sending" ? "Sending…" : "Request my demo →"}
+            </button>
+            <p className="text-center text-xs font-semibold text-tablu-gray/70">Or email <a href={`mailto:${CONTACT}`} className="underline">{CONTACT}</a></p>
+          </form>
+        )}
+      </div>
+    </div>
+  );
 }
 
 function Heading({ children, light = false, className = "" }: { children: React.ReactNode; light?: boolean; className?: string }) {
@@ -71,7 +162,7 @@ function Marquee({ dark = false }: { dark?: boolean }) {
 function AnnouncementBar() {
   return (
     <div className="bg-tablu-black text-white text-center text-xs sm:text-sm font-bold py-2 px-4">
-      Now live in Kigali, <a href={DEMO} className="text-tablu-orange hover:underline">bring Tablu to your restaurant →</a>
+      Now live in Kigali, <button onClick={openDemo} className="text-tablu-orange hover:underline font-bold">bring Tablu to your restaurant →</button>
     </div>
   );
 }
@@ -89,7 +180,7 @@ function Nav() {
         <a href="#top" className="flex items-center md:justify-center md:flex-1"><img src="/brand/tablu-logo-trans.png" alt="Tablu" className="h-6" /></a>
         <div className="hidden md:flex items-center gap-7 flex-1 justify-end">
           {right.map(([l, h]) => <a key={h} href={h} className="text-sm font-bold text-tablu-gray hover:text-tablu-black transition">{l}</a>)}
-          <a href={DEMO} className="bg-tablu-orange text-white text-sm font-extrabold px-5 py-2 rounded-full hover:brightness-95 transition">Book a demo</a>
+          <button onClick={openDemo} className="bg-tablu-orange text-white text-sm font-extrabold px-5 py-2 rounded-full hover:brightness-95 transition">Book a demo</button>
         </div>
         <button className="md:hidden text-tablu-black" onClick={() => setOpen(v => !v)} aria-label="Menu">
           <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round">
@@ -100,7 +191,7 @@ function Nav() {
       {open && (
         <div className="md:hidden max-w-5xl mx-auto mt-2 bg-white rounded-large shadow-lg border border-black/5 p-5 flex flex-col gap-4">
           {[...left, ...right].map(([l, h]) => <a key={h} href={h} onClick={() => setOpen(false)} className="font-bold text-tablu-black">{l}</a>)}
-          <a href={DEMO} className="bg-tablu-orange text-white font-extrabold px-5 py-3 rounded-full text-center">Book a demo</a>
+          <button onClick={() => { setOpen(false); openDemo(); }} className="bg-tablu-orange text-white font-extrabold px-5 py-3 rounded-full text-center">Book a demo</button>
         </div>
       )}
     </header>
@@ -124,7 +215,7 @@ function Hero() {
           dashboard, and a guest list that brings them back, all from one platform.
         </p>
         <div className="mt-8 flex flex-wrap items-center justify-center gap-3">
-          <Pill href={DEMO}>Book a demo →</Pill>
+          <Pill onClick={openDemo}>Book a demo →</Pill>
           <Pill href="#platform" variant="outline" dark>See the platform</Pill>
         </div>
       </div>
@@ -301,7 +392,7 @@ function QRStand() {
               </div>
             ))}
           </div>
-          <div className="mt-8"><Pill href={DEMO}>Book a demo →</Pill></div>
+          <div className="mt-8"><Pill onClick={openDemo}>Book a demo →</Pill></div>
         </div>
         <img src={A("_qr_stand_preview.jpg")} alt="Tablu QR table stand on a restaurant table" className="w-full max-w-md mx-auto rounded-xl shadow-2xl" />
       </div>
@@ -367,7 +458,7 @@ function CTABand() {
           See it live on your own menu. We&apos;ll set up a demo and walk you through it. No commitment.
         </p>
         <div className="mt-8 flex flex-wrap justify-center gap-3">
-          <a href={DEMO} className="bg-white text-tablu-black font-extrabold px-8 py-4 rounded-full shadow-sm hover:bg-white/90 transition">Book a demo →</a>
+          <button onClick={openDemo} className="bg-white text-tablu-black font-extrabold px-8 py-4 rounded-full shadow-sm hover:bg-white/90 transition">Book a demo →</button>
           <Link to="/admin" className="bg-tablu-black/20 text-white font-extrabold px-8 py-4 rounded-full hover:bg-tablu-black/30 transition">Restaurant login</Link>
         </div>
         <p className="mt-6 font-bold text-white/80">Kigali, Rwanda · <a href={`mailto:${CONTACT}`} className="underline">{CONTACT}</a></p>
@@ -379,7 +470,7 @@ function CTABand() {
 function Footer() {
   const cols = [
     { h: "Platform", links: [["Dashboard & kitchen", "#platform"], ["How it works", "#how"], ["Why Tablu", "#why"], ["Guest experience", "#guests"]] },
-    { h: "Company", links: [["Book a demo", DEMO], ["Restaurant login", "/admin"]] },
+    { h: "Company", links: [["Book a demo", "#demo"], ["Restaurant login", "/admin"]] },
   ];
   return (
     <footer className="bg-tablu-black text-white">
@@ -395,9 +486,11 @@ function Footer() {
             <ul className="mt-4 space-y-3">
               {c.links.map(([label, href]) => (
                 <li key={label}>
-                  {href.startsWith("/")
-                    ? <Link to={href} className="font-bold text-white/80 hover:text-white">{label}</Link>
-                    : <a href={href} className="font-bold text-white/80 hover:text-white">{label}</a>}
+                  {href === "#demo"
+                    ? <button onClick={openDemo} className="font-bold text-white/80 hover:text-white">{label}</button>
+                    : href.startsWith("/")
+                      ? <Link to={href} className="font-bold text-white/80 hover:text-white">{label}</Link>
+                      : <a href={href} className="font-bold text-white/80 hover:text-white">{label}</a>}
                 </li>
               ))}
             </ul>
@@ -407,6 +500,10 @@ function Footer() {
       <div className="border-t border-white/10">
         <div className="max-w-6xl mx-auto px-6 py-6 flex flex-wrap items-center justify-between gap-3 text-sm font-bold text-white/50">
           <span>© 2026 Tablu. All rights reserved.</span>
+          <span>
+            Built by{" "}
+            <a href="https://creovine.com" target="_blank" rel="noopener noreferrer" className="text-white/80 hover:text-white underline">Creovine</a>
+          </span>
           <a href="#top" className="hover:text-white">Back to top ↑</a>
         </div>
       </div>
@@ -432,6 +529,7 @@ export default function LandingPage() {
         <Marquee />
       </main>
       <Footer />
+      <DemoModal />
     </div>
   );
 }
